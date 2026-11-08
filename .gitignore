@@ -1,0 +1,7 @@
+# 本地缓存与临时文件
+.tmp/
+.pnpm-store/
+node_modules/
+.dsh-desktop-backup/
+*.log
+*.tmp

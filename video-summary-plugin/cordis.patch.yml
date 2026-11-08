@@ -1,0 +1,16 @@
+- insert:
+    - id: video-summary-speech
+      name: '@deepseek-ai/dsh-experimental-speech-to-text'
+      config:
+        defaultProvider: video-summary-sensevoice
+    - id: video-summary-sensevoice
+      name: '@deepseek-ai/dsh-experimental-speech-to-text-sensevoice'
+      config:
+        providerId: video-summary-sensevoice
+        dataRoot: !!js dshHomePath('speech-to-text', 'sensevoice')
+        maxAudioBytes: 150000000
+        inferenceTimeoutMs: 900000
+        maxResponseBytes: 2097152
+        threads: 4
+    - id: video-summary
+      name: '@local/video-summary'

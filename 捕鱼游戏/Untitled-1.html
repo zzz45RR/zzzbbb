@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>深海捕鱼 · Fishing Master</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #031426; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none;
+  }
+  #game-container { position: fixed; inset: 0; }
+  #game { display: block; width: 100%; height: 100%; }
+
+  /* 暗角与闪光交给浏览器合成层，替代每帧整屏 canvas 填充 */
+  #vignette {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 44%,
+      rgba(0,0,0,0) 28%, rgba(0,10,25,.22) 62%, rgba(0,8,20,.72) 100%);
+  }
+  #flash {
+    position: absolute; inset: 0; pointer-events: none;
+    background: #fff; opacity: 0; will-change: opacity;
+  }
+
+  #hud {
+    position: absolute; inset: 0; pointer-events: none;
+    padding: calc(10px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+             calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+  }
+  .coin-panel {
+    position: absolute; top: calc(10px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left));
+    display: flex; align-items: center; gap: 8px;
+    background: linear-gradient(180deg, rgba(10,30,55,.88), rgba(6,18,38,.92));
+    border: 1px solid rgba(255,200,80,.45); border-radius: 24px;
+    padding: 7px 18px 7px 10px; box-shadow: 0 4px 14px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12);
+  }
+  .coin-icon {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: radial-gradient(circle at 32% 30%, #ffe98a, #f6b93b 55%, #c97b12);
+    box-shadow: 0 0 10px rgba(255,190,60,.75), inset 0 -2px 4px rgba(120,60,0,.55);
+    display: flex; align-items: center; justify-content: center;
+    color: #7a4a00; font-weight: 900; font-size: 15px; font-family: Georgia, serif;
+  }
+  #coin-count {
+    color: #ffd867; font-size: 20px; font-weight: 800; min-width: 3.2em;
+    text-shadow: 0 0 8px rgba(255,190,60,.55); font-variant-numeric: tabular-nums;
+  }
+  #coin-count.bump { animation: bump .3s ease; }
+  @keyframes bump { 40% { transform: scale(1.28); color: #fff3b0; } }
+
+  #combo {
+    position: absolute; top: calc(17% + env(safe-area-inset-top)); left: 50%;
+    transform: translateX(-50%) scale(.7); opacity: 0;
+    font-size: 30px; font-weight: 900; letter-spacing: 3px; white-space: nowrap;
+    color: #fff2b8; pointer-events: none;
+    text-shadow: 0 0 16px rgba(255,180,60,.95), 0 3px 8px rgba(0,0,0,.75);
+    transition: opacity .16s, transform .16s;
+  }
+  #combo.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
+  #banner {
+    position: absolute; top: 30%; left: 50%; transform: translateX(-50%) translateY(16px) scale(.9);
+    opacity: 0; pointer-events: none; white-space: nowrap; max-width: 92vw;
+    padding: 12px 32px; border-radius: 14px; font-size: 21px; font-weight: 900; letter-spacing: 2px;
+    color: #fff3c4;
+    background: linear-gradient(180deg, rgba(84,22,10,.92), rgba(30,6,4,.94));
+    border: 1px solid rgba(255,180,80,.7);
+    box-shadow: 0 8px 30px rgba(0,0,0,.6), inset 0 0 26px rgba(255,140,40,.35);
+    text-shadow: 0 0 12px rgba(255,170,60,.9);
+  }
+  #banner.show { animation: bannerIn 2.6s ease forwards; }
+  @keyframes bannerIn {
+    0% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(.85); }
+    12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.05); }
+    24% { transform: translateX(-50%) translateY(0) scale(1); }
+    76% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(.98); }
+  }
+
+  .mult-panel {
+    position: absolute; bottom: calc(14px + env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px; pointer-events: auto;
+    background: linear-gradient(180deg, rgba(12,32,58,.9), rgba(5,16,34,.94));
+    border: 1px solid rgba(90,180,255,.4); border-radius: 30px; padding: 6px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12);
+  }
+  .mult-panel button {
+    width: 52px; height: 52px; border-radius: 50%; border: 1px solid rgba(140,210,255,.55);
+    background: linear-gradient(180deg, #2a6db5, #143a6e); color: #eaf6ff;
+    font-size: 26px; font-weight: 900; cursor: pointer; line-height: 1;
+    box-shadow: 0 3px 8px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25);
+    transition: transform .08s, filter .12s;
+  }
+  .mult-panel button:active { transform: scale(.9); filter: brightness(1.35); }
+  #mult-display {
+    min-width: 96px; text-align: center; color: #fff; font-size: 21px; font-weight: 800;
+    text-shadow: 0 0 10px currentColor; transition: color .15s; font-variant-numeric: tabular-nums;
+  }
+  .mult-hint {
+    position: absolute; bottom: calc(76px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+    color: rgba(190,225,255,.75); font-size: 12px; white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none;
+  }
+
+  #toast {
+    position: absolute; top: 22%; left: 50%; transform: translateX(-50%) translateY(-8px);
+    background: rgba(8,20,40,.92); border: 1px solid rgba(255,170,80,.6); color: #ffd88a;
+    padding: 10px 26px; border-radius: 12px; font-size: 16px; font-weight: 700;
+    opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none;
+    box-shadow: 0 6px 20px rgba(0,0,0,.5); white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  #start-screen {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 50% 20%, rgba(20,70,120,.55), rgba(2,10,22,.88) 70%);
+    backdrop-filter: blur(3px); z-index: 10; transition: opacity .4s;
+  }
+  #start-screen.hidden { opacity: 0; pointer-events: none; }
+  .start-card {
+    text-align: center; padding: 30px 40px; border-radius: 22px; max-width: 92vw;
+    max-height: 92vh; overflow-y: auto;
+    background: linear-gradient(180deg, rgba(14,40,74,.92), rgba(6,18,38,.95));
+    border: 1px solid rgba(255,200,90,.4); box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  }
+  .start-card h1 {
+    font-size: clamp(32px, 6.5vw, 50px); letter-spacing: 8px; margin-bottom: 6px;
+    background: linear-gradient(180deg, #fff2b8 15%, #ffc94d 55%, #d98a1f);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,.55));
+  }
+  .start-card .sub { color: #7fd0ff; font-size: 13px; letter-spacing: 4px; margin-bottom: 18px; }
+  .rules { text-align: left; color: #cfe6ff; font-size: 13.5px; line-height: 2; margin-bottom: 20px; }
+  .rules b { color: #ffd867; }
+  .rules .k {
+    display: inline-block; background: rgba(255,255,255,.1); border: 1px solid rgba(150,210,255,.35);
+    border-radius: 6px; padding: 0 7px; margin: 0 2px; font-size: 12px; color: #bfe3ff;
+  }
+  #btn-start {
+    font-size: 22px; font-weight: 900; letter-spacing: 6px; color: #5c3a00; cursor: pointer;
+    padding: 14px 60px; border: none; border-radius: 40px;
+    background: linear-gradient(180deg, #ffe08a, #f5a623 60%, #d97c14);
+    box-shadow: 0 6px 0 #9c5a08, 0 12px 26px rgba(0,0,0,.5), inset 0 2px 0 rgba(255,255,255,.65);
+    transition: transform .1s, box-shadow .1s;
+  }
+  #btn-start:active { transform: translateY(4px); box-shadow: 0 2px 0 #9c5a08, 0 6px 14px rgba(0,0,0,.5); }
+  .ghost-btn {
+    display: block; margin: 14px auto 0; padding: 10px 30px; border-radius: 30px; cursor: pointer;
+    background: rgba(20,60,100,.6); color: #bfe3ff; border: 1px solid rgba(120,200,255,.45);
+    font-size: 15px; letter-spacing: 2px;
+  }
+  .ghost-btn:active { filter: brightness(1.35); }
+
+  #codex {
+    position: absolute; inset: 0; z-index: 20; display: none;
+    background: rgba(2,10,22,.93); backdrop-filter: blur(4px);
+    padding: calc(14px + env(safe-area-inset-top)) 14px calc(20px + env(safe-area-inset-bottom));
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  #codex.open { display: block; }
+  .codex-panel { max-width: 940px; margin: 0 auto; }
+  .codex-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .codex-head h2 { color: #ffd867; font-size: 22px; letter-spacing: 4px; }
+  .codex-head .tip { color: rgba(160,205,245,.6); font-size: 11px; margin-top: 2px; letter-spacing: 1px; }
+  .codex-head button {
+    padding: 8px 22px; border-radius: 20px; border: 1px solid rgba(255,200,90,.5);
+    background: rgba(30,60,95,.7); color: #ffd867; font-size: 15px; cursor: pointer;
+  }
+  .codex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 10px; }
+  .codex-card {
+    background: linear-gradient(180deg, rgba(12,36,64,.9), rgba(5,16,34,.95));
+    border: 1px solid rgba(90,170,255,.3); border-radius: 14px; padding: 8px; text-align: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,.4);
+  }
+  .codex-card.rare { border-color: rgba(255,230,120,.7); box-shadow: 0 0 18px rgba(255,220,110,.25); }
+  .codex-card.boss { border-color: rgba(255,170,60,.65); box-shadow: 0 0 22px rgba(255,150,40,.3); }
+  .codex-card canvas { width: 100%; display: block; border-radius: 10px; }
+  .codex-name { margin-top: 6px; color: #eaf6ff; font-size: 14px; font-weight: 700; }
+  .codex-name span { display: block; color: rgba(150,200,240,.6); font-size: 9.5px; font-weight: 400; letter-spacing: .5px; }
+  .codex-meta { margin-top: 4px; color: rgba(190,225,255,.75); font-size: 11px; }
+  .codex-meta b { color: #ffd867; }
+
+  @media (max-width: 520px) {
+    .mult-panel button { width: 44px; height: 44px; font-size: 22px; }
+    #mult-display { min-width: 78px; font-size: 18px; }
+    .start-card { padding: 22px 20px; }
+    .rules { font-size: 12.5px; line-height: 1.9; }
+    #combo { font-size: 24px; }
+    #banner { font-size: 17px; padding: 10px 20px; }
+  }
+</style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="game"></canvas>
+  <div id="vignette"></div>
+  <div id="flash"></div>
+
+  <div id="hud">
+    <div class="coin-panel">
+      <div class="coin-icon">$</div>
+      <span id="coin-count">500</span>
+    </div>
+    <div id="combo"></div>
+    <div id="banner"></div>
+    <div class="mult-hint">消耗 <span id="hint-cost">1</span> 金币 / 发 · 键盘 1/2/3 切换炮倍 · C 打开图鉴</div>
+    <div class="mult-panel">
+      <button id="btn-down" aria-label="降低炮倍">−</button>
+      <div id="mult-display" style="color:#6fc3ff">×1</div>
+      <button id="btn-up" aria-label="提高炮倍">＋</button>
+    </div>
+    <div id="toast"></div>
+  </div>
+
+  <div id="start-screen">
+    <div class="start-card">
+      <h1>深海捕鱼</h1>
+      <div class="sub">FISHING MASTER</div>
+      <div class="rules">
+        🎯 <b>点击 / 触摸</b> 屏幕任意位置，向该方向发射渔网<br>
+        💰 每发消耗与<b>炮倍</b>相等的金币，炮倍越高捕获率越高<br>
+        🐟 捕获奖励 = <b>鱼分值 × 炮倍</b>，一网可捕多条鱼<br>
+        🔥 连续捕获触发 <b>连击加成</b>，最高额外 +54% 金币<br>
+        🐋 共 <b>16 种</b>鱼类：蓝雀鲷 / 霓虹灯鱼 / 小丑鱼 / 黄尾鲷 / 天使鱼 / 蝴蝶鱼<br>
+        &nbsp;&nbsp;&nbsp;狮子鱼 / 河豚 / 灯笼鱼 / 红莲鱼 / 剑齿鲨 / 魔鬼鱼 / 电鳗 / 黄金锦鲤<br>
+        🐉 击败 <b>深海金龙</b> 或 <b>玄武巨鲸</b> 可获得巨额金币<br>
+        <span class="k">1</span><span class="k">2</span><span class="k">3</span> 切换炮倍（×1 / ×10 / ×100）· <span class="k">C</span> 查看鱼类图鉴
+      </div>
+      <button id="btn-start">开 始 游 戏</button>
+      <button id="btn-codex" class="ghost-btn">🐟 鱼类图鉴</button>
+    </div>
+  </div>
+
+  <div id="codex">
+    <div class="codex-panel">
+      <div class="codex-head">
+        <div>
+          <h2>鱼类图鉴</h2>
+          <div class="tip">程序化贴图 · 鳞片 / 条纹 / 斑带 / 斑点纹理</div>
+        </div>
+        <button id="btn-codex-close">关闭</button>
+      </div>
+      <div class="codex-grid" id="codex-grid"></div>
+    </div>
+  </div>
+</div>
+
+<script src="Untitled-2.js"></script>
+<script src="const FISH_TYPES = [.js"></script>
+<script src="Untitled-4.js"></script>
+</body>
+</html>

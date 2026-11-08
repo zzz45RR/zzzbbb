@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Video Summary to Word",
+    "description": "Reads a web video's captions or speech, summarizes it, and downloads a formatted Word document."
+  }
+}
