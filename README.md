@@ -1,13 +1,12 @@
 # DSH 工作区快照：视频总结插件 + 小游戏
 
-这是 DeepSeek Harness（DSH）桌面端一个工作区的快照，主要包含**一个自建的视频总结插件**、它产出的 Word 样本，以及一个浏览器小游戏。用来备份和分享插件源码，不包含任何 API Key、账号凭据或模型缓存。
+这是 DeepSeek Harness（DSH）桌面端一个工作区的快照，主要包含**一个自建的视频总结插件**和一个浏览器小游戏。用来备份和分享插件源码，不包含任何 API Key、账号凭据或模型缓存。
 
 ## 目录结构
 
 | 路径 | 内容 |
 | --- | --- |
 | `video-summary-plugin/` | 视频总结插件（宿主 + 客户端面板 + 本地语音转写 + Word 渲染） |
-| `video-summaries/` | 该插件生成的 Word 文档样本 |
 | `docs/agents/workspace.yaml` | DSH 工作区与后端的绑定配置 |
 | `捕鱼游戏/` | 单文件 HTML5 捕鱼小游戏 |
 | `.gitignore` | 排除本地缓存（`.tmp/`、`.pnpm-store/`、`node_modules/` 等） |
@@ -55,13 +54,6 @@ dsh plugin --profile desktop add "link:<video-summary-plugin 的绝对路径>"
 模型偶尔不按约定的 JSON 结构输出，早期版本会把原始 JSON 文本直接倒进 Word（标题变成「模型返回了非结构化总结。」，后续章节缺失）。
 
 现在 `lib/summarize.js` 在解析失败时会**自动重试一次**：temperature 降到 0，并追加「只输出一个 JSON 对象、不要解释和代码围栏」的硬约束；仍失败才回退到旧行为。
-
-## video-summaries
-
-插件生成的样本文档，每个约 30–50 KB：
-
-- `读懂英语新闻（第373期）…docx` —— B 站英语新闻精读课，三条新闻 + 词汇讲解
-- `四六级写作模板课…P1 议论文-问题解决…docx`（两份）—— 写作模板课的分集总结
 
 ## 捕鱼游戏
 
